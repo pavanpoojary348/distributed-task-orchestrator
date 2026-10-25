@@ -17,6 +17,7 @@ class TaskStatus(str, Enum):
     COMPLETED = "COMPLETED"          # Finished successfully
     FAILED = "FAILED"                # Failed execution, might be retried
     DEAD_LETTER = "DEAD_LETTER"      # Failed too many times; parked in DLQ
+    CANCELLED = "CANCELLED"          # Cancelled by user/operator before execution
 
 
 class TaskPriority(int, Enum):

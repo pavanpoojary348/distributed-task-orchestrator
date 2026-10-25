@@ -6,15 +6,18 @@ normal jobs, fast jobs, slow jobs, and flaky jobs that fail intentionally.
 
 import time
 import random
+import os
 
 
 def resize_image(payload: dict) -> dict:
     """Simulates resizing an image to thumbnail dimensions."""
-    filename = payload.get("filename", "sample.png")
-    width = payload.get("width", 300)
-    height = payload.get("height", 300)
-    # Simulate processing time
-    time.sleep(payload.get("delay", 0.5))
+    raw_filename = str(payload.get("filename", "sample.png"))
+    filename = os.path.basename(raw_filename) or "sample.png"
+    width = int(payload.get("width", 300))
+    height = int(payload.get("height", 300))
+    # Simulate processing time with bounds check
+    delay = max(0.0, min(float(payload.get("delay", 0.5)), 10.0))
+    time.sleep(delay)
     return {
         "status": "success",
         "file": filename,
@@ -27,8 +30,9 @@ def generate_pdf_report(payload: dict) -> dict:
     """Simulates compiling and rendering a multi-page PDF document."""
     report_title = payload.get("title", "Monthly Analytics Summary")
     pages = payload.get("pages", 12)
-    # Simulate processing time
-    time.sleep(payload.get("delay", 0.8))
+    # Simulate processing time with bounds check
+    delay = max(0.0, min(float(payload.get("delay", 0.8)), 10.0))
+    time.sleep(delay)
     return {
         "status": "success",
         "title": report_title,
@@ -39,7 +43,7 @@ def generate_pdf_report(payload: dict) -> dict:
 
 def flaky_task(payload: dict) -> dict:
     """Simulates an unreliable job (e.g., third-party API timeout) to test retries and DLQ."""
-    failure_rate = payload.get("failure_rate", 0.6)
+    failure_rate = max(0.0, min(float(payload.get("failure_rate", 0.6)), 1.0))
     time.sleep(0.3)
     if random.random() < failure_rate:
         raise RuntimeError("Transient upstream connection timeout: remote server unreachable")

@@ -329,6 +329,15 @@ class HACoordinator:
     def fail_task(self, *args, **kwargs) -> bool:
         return self.active_coordinator.fail_task(*args, **kwargs)
 
+    def cancel_task(self, task_id: str) -> bool:
+        return self.active_coordinator.cancel_task(task_id)
+
+    def retry_task(self, task_id: str) -> bool:
+        return self.active_coordinator.retry_task(task_id)
+
+    def retry_all_dlq(self) -> int:
+        return self.active_coordinator.retry_all_dlq()
+
     def get_cluster_stats(self) -> Dict[str, Any]:
         stats = self.active_coordinator.get_cluster_stats()
         stats["ha"] = self.get_ha_stats()

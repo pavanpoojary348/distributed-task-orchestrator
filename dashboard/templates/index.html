@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Distributed Task Orchestrator | Simple & Powerful Control Plane</title>
+  <meta name="description" content="Fault-tolerant, high-availability distributed task orchestrator telemetry dashboard.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #0b0f19;
+      --bg-surface: #111827;
+      --bg-card: rgba(17, 24, 39, 0.7);
+      --bg-card-hover: rgba(24, 34, 53, 0.85);
+      --bg-input: #151d30;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.15);
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-glow: rgba(99, 102, 241, 0.25);
+      
+      --emerald: #10b981;
+      --emerald-bg: rgba(16, 185, 129, 0.12);
+      --emerald-border: rgba(16, 185, 129, 0.3);
+      
+      --amber: #f59e0b;
+      --amber-bg: rgba(245, 158, 11, 0.12);
+      --amber-border: rgba(245, 158, 11, 0.3);
+      
+      --rose: #f43f5e;
+      --rose-bg: rgba(244, 63, 94, 0.12);
+      --rose-border: rgba(244, 63, 94, 0.3);
+      
+      --cyan: #06b6d4;
+      --cyan-bg: rgba(6, 182, 212, 0.12);
+      --cyan-border: rgba(6, 182, 212, 0.3);
+      
+      --purple: #8b5cf6;
+      --purple-bg: rgba(139, 92, 246, 0.12);
+      --purple-border: rgba(139, 92, 246, 0.3);
+      
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+      
+      --glass-blur: blur(16px);
+      --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+      background-image: 
+        radial-gradient(ellipse 70% 40% at 50% -10%, rgba(99, 102, 241, 0.09), transparent),
+        radial-gradient(ellipse 50% 30% at 90% 90%, rgba(6, 182, 212, 0.05), transparent);
+      background-attachment: fixed;
+    }
+
+    .app-container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px 28px 48px;
+    }
+
+    @media (max-width: 768px) {
+      .app-container {
+        padding: 16px 16px 32px;
+      }
+    }
+
+    /* Top Navigation Bar */
+    header.top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 22px;
+      background: var(--bg-card);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      margin-bottom: 24px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+    }
+
+    .brand-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .brand-text h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-text .subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Center Mode Switcher */
+    .mode-switcher-container {
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .mode-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+
+    .mode-btn:hover {
+      color: #fff;
+    }
+
+    .mode-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
+
+    /* Header Right Info & Action */
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 11.5px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--emerald);
+      position: relative;
+    }
+
+    .pulse-dot::after {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      animation: pulse-ring 2s infinite cubic-bezier(0.24, 0, 0.38, 1);
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: var(--transition);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      border-color: var(--border-subtle);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: var(--border-strong);
+    }
+
+    .btn-danger {
+      background: var(--rose-bg);
+      color: #f87171;
+      border-color: var(--rose-border);
+    }
+
+    .btn-danger:hover {
+      background: rgba(244, 63, 94, 0.22);
+    }
+
+    .btn-success {
+      background: var(--emerald-bg);
+      color: #34d399;
+      border-color: var(--emerald-border);
+    }
+
+    .btn-success:hover {
+      background: rgba(16, 185, 129, 0.22);
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 11.5px;
+      border-radius: 6px;
+    }
+
+    /* =========================================================================
+       VIEW 1: SIMPLE MODE (DEFAULT)
+       ========================================================================= */
+    #view-simple {
+      display: block;
+    }
+
+    /* Friendly Status Banner */
+    .simple-status-banner {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(99, 102, 241, 0.06) 100%);
+      border: 1px solid var(--emerald-border);
+      border-radius: var(--radius-lg);
+      padding: 18px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .simple-status-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-check-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--emerald-bg);
+      border: 1px solid var(--emerald-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--emerald);
+      flex-shrink: 0;
+    }
+
+    .status-check-circle svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.5;
+    }
+
+    .status-headline {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .status-subhead {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Simple 3-Card Summary Grid */
+    .simple-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .simple-summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .simple-kpi-card {
+      background: var(--bg-card);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      transition: var(--transition);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .simple-kpi-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+    }
+
+    .simple-kpi-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .simple-kpi-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.1;
+    }
+
+    .simple-kpi-sub {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .simple-kpi-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .simple-kpi-icon svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    /* Effortless Quick-Launch Strip */
+    .quick-launch-strip {
+      background: var(--bg-card);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .quick-launch-form {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .form-select, .form-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 12.5px;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .form-select:focus, .form-input:focus {
+      border-color: var(--primary);
+    }
+
+    /* Two-Column Simplified Main Layout */
+    .simple-main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.35fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .simple-main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel-box {
+      background: var(--bg-card);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+    }
+
+    .panel-box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .panel-box-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-box-title svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--primary);
+      fill: none;
+      stroke-width: 2.2;
+    }
+
+    /* Worker Cards List */
+    .workers-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .worker-card {
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      transition: var(--transition);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .worker-card:hover {
+      border-color: var(--border-strong);
+      background: rgba(15, 23, 42, 0.65);
+    }
+
+    .worker-card.status-active {
+      border-left: 3px solid var(--emerald);
+    }
+
+    .worker-card.status-suspected {
+      border-left: 3px solid var(--amber);
+      background: rgba(245, 158, 11, 0.04);
+    }
+
+    .worker-card.status-dead {
+      border-left: 3px solid var(--rose);
+      background: rgba(244, 63, 94, 0.04);
+      opacity: 0.85;
+    }
+
+    .worker-info-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .worker-name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .worker-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-active { background: var(--emerald-bg); color: #34d399; border: 1px solid var(--emerald-border); }
+    .badge-suspected { background: var(--amber-bg); color: #fbbf24; border: 1px solid var(--amber-border); }
+    .badge-dead { background: var(--rose-bg); color: #f87171; border: 1px solid var(--rose-border); }
+    .badge-elastic { background: var(--purple-bg); color: #c4b5fd; border: 1px solid var(--purple-border); }
+
+    .worker-activity {
+      font-size: 11.5px;
+      color: var(--text-dim);
+    }
+
+    .worker-activity b {
+      color: var(--cyan);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+    }
+
+    /* Tasks Activity Feed */
+    .task-search-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 7px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    .task-search-input:focus {
+      border-color: var(--primary);
+    }
+
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 12px;
+    }
+
+    th {
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-dim);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .task-status-pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-PENDING { background: var(--purple-bg); color: #c4b5fd; border: 1px solid var(--purple-border); }
+    .status-IN_PROGRESS { background: var(--cyan-bg); color: #38bdf8; border: 1px solid var(--cyan-border); }
+    .status-COMPLETED { background: var(--emerald-bg); color: #34d399; border: 1px solid var(--emerald-border); }
+    .status-FAILED { background: var(--rose-bg); color: #f87171; border: 1px solid var(--rose-border); }
+    .status-DEAD_LETTER { background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); }
+    .status-CANCELLED { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+
+    .priority-pill {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .priority-1 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .priority-2 { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .priority-3 { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+    .priority-4 { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+    /* =========================================================================
+       VIEW 2: ADVANCED OPS MODE
+       ========================================================================= */
+    #view-advanced {
+      display: none;
+    }
+
+    .adv-nav-tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    .adv-tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+
+    .adv-tab-btn:hover { color: #fff; }
+    .adv-tab-btn.active { color: #fff; border-bottom-color: var(--primary); }
+
+    .adv-tab-pane {
+      display: none;
+    }
+
+    .adv-tab-pane.active {
+      display: block;
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Charts & HA Layouts in Advanced Mode */
+    .metrics-dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .metrics-dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .metric-gauge-card {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+    }
+
+    .chart-box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .chart-canvas-container {
+      position: relative;
+      height: 180px;
+      width: 100%;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* HA Cards */
+    .ha-nodes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.2fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .ha-nodes-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .ha-node-card {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .ha-role-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Logs Box */
+    .log-box {
+      background: #06090e;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      height: 380px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+    }
+
+    .log-entry {
+      padding: 3px 6px;
+      border-radius: 4px;
+      display: flex;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .log-time { color: var(--text-dim); }
+    .log-source { color: #818cf8; font-weight: 600; }
+    .log-msg { color: #d1d5db; word-break: break-all; }
+    .level-ERROR .log-msg { color: #f87171; }
+    .level-WARNING .log-msg { color: #fbbf24; }
+    .level-SUCCESS .log-msg { color: #34d399; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.active { display: flex; }
+
+    .modal-container {
+      background: #111827;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      width: 100%;
+      max-width: 440px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .modal-title { font-size: 16px; font-weight: 700; color: #fff; }
+    .close-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; }
+
+    /* Toast Notifications */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: #fff;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 12px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: var(--transition);
+      z-index: 1100;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- Top Navigation Header -->
+    <header class="top-nav">
+      <div class="brand-group">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        </div>
+        <div class="brand-text">
+          <h1>Distributed Task Orchestrator</h1>
+          <div class="subtext">Worker Fleet Control Plane</div>
+        </div>
+      </div>
+
+      <!-- Mode Switcher: Standard (Simple) vs Advanced Ops -->
+      <div class="mode-switcher-container" role="tablist" aria-label="Dashboard complexity switcher">
+        <button class="mode-btn active" id="btn-mode-simple" onclick="setDashboardMode('simple')">
+          <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Standard View
+        </button>
+        <button class="mode-btn" id="btn-mode-advanced" onclick="setDashboardMode('advanced')">
+          <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Advanced Ops
+        </button>
+      </div>
+
+      <!-- Status Pill & Quick Action -->
+      <div class="header-right">
+        <div class="status-pill" id="ws-status-pill" style="border-color: var(--emerald-border); background: var(--emerald-bg); color: #34d399;">
+          <div class="pulse-dot" id="ws-pulse-dot" style="background-color: #10b981;"></div>
+          <span id="ws-status-text">Live Connected</span>
+        </div>
+        <button class="btn btn-primary" onclick="openTaskModal()">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Dispatch Task
+        </button>
+      </div>
+    </header>
+
+
+    <!-- =====================================================================
+         VIEW 1: STANDARD / SIMPLE MODE (EFFORTLESS & CLEAN)
+         ===================================================================== -->
+    <main id="view-simple">
+      <!-- Friendly Reassuring Health Banner -->
+      <section class="simple-status-banner">
+        <div class="simple-status-left">
+          <div class="status-check-circle">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <div>
+            <div class="status-headline" id="simple-health-headline">Cluster Healthy & Ready</div>
+            <div class="status-subhead">
+              Cluster: <b id="cluster-name" style="color: #fff;">cluster-production-01</b> • Auto-scaler active (3–8 nodes)
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" onclick="fetchStats(); fetchTasks(); showToast('Telemetry refreshed');">
+            Refresh
+          </button>
+        </div>
+      </section>
+
+      <!-- 3 Core High-Level Metric Cards -->
+      <section class="simple-summary-grid">
+        <!-- 1. Workers -->
+        <div class="simple-kpi-card">
+          <div>
+            <div class="simple-kpi-title">Active Workers</div>
+            <div class="simple-kpi-num" id="val-active-workers">-</div>
+            <div class="simple-kpi-sub" id="val-total-workers">of - total nodes</div>
+          </div>
+          <div class="simple-kpi-icon" style="background: var(--emerald-bg); color: var(--emerald);">
+            <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+          </div>
+        </div>
+
+        <!-- 2. Queue Backlog -->
+        <div class="simple-kpi-card">
+          <div>
+            <div class="simple-kpi-title">Queue Backlog</div>
+            <div class="simple-kpi-num" id="val-pending-tasks" style="color: #c4b5fd;">-</div>
+            <div class="simple-kpi-sub"><span id="val-in-progress-tasks">-</span> currently in-flight</div>
+          </div>
+          <div class="simple-kpi-icon" style="background: var(--purple-bg); color: var(--purple);">
+            <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          </div>
+        </div>
+
+        <!-- 3. Completed Tasks -->
+        <div class="simple-kpi-card">
+          <div>
+            <div class="simple-kpi-title">Completed Tasks</div>
+            <div class="simple-kpi-num" id="val-completed-tasks" style="color: #34d399;">-</div>
+            <div class="simple-kpi-sub"><span id="val-total-tasks">of - submitted</span> • <span id="val-dlq-tasks" style="color: #fb7185;">0 DLQ</span></div>
+          </div>
+          <div class="simple-kpi-icon" style="background: var(--cyan-bg); color: var(--cyan);">
+            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- Clean 1-Click Quick Launcher -->
+      <section class="quick-launch-strip">
+        <div class="quick-launch-form">
+          <span style="font-size: 13px; font-weight: 700; color: #fff;">Quick Run:</span>
+          <select class="form-select" id="quick-task-select" style="max-width: 260px;" onchange="document.getElementById('task-select').value = this.value">
+            <option value="resize_image">🖼️ Resize Image (Fast Thumbnail)</option>
+            <option value="generate_pdf_report">📄 Generate PDF (CPU Work)</option>
+            <option value="flaky_task">🎲 Flaky Task (Simulate Network Retries)</option>
+            <option value="poison_pill">☠️ Poison Pill (DLQ Quarantine)</option>
+          </select>
+          <button class="btn btn-primary" onclick="submitQuickTask()">Run</button>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" onclick="submitBurst()">⚡ Burst (6 Tasks)</button>
+          <button class="btn btn-secondary btn-sm" style="color: var(--cyan); border-color: var(--cyan-border);" onclick="submitSurge()">🌊 Auto-Scale (10)</button>
+        </div>
+      </section>
+
+      <!-- Main Two-Column View: Workers & Activity Feed -->
+      <div class="simple-main-grid">
+        <!-- Left: Worker Fleet -->
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <div class="panel-box-title">
+              <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect></svg>
+              Worker Fleet Nodes
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="spawnNewWorker()">+ Add Worker</button>
+          </div>
+
+          <div class="workers-list" id="workers-container">
+            <!-- Dynamic worker cards -->
+          </div>
+        </div>
+
+        <!-- Right: Recent Task Pipeline -->
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <div class="panel-box-title">
+              <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line></svg>
+              Recent Task Pipeline
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button class="btn btn-secondary btn-sm" id="btn-replay-dlq" onclick="replayAllDLQ()" title="Re-drive all failed tasks from Dead Letter Queue" style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 4px 10px; border-color: rgba(244, 63, 94, 0.4); color: #fda4af;">
+                <svg style="width: 11px; height: 11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                Re-drive DLQ
+              </button>
+              <div style="font-size: 11.5px; color: var(--text-dim);">Live streaming</div>
+            </div>
+          </div>
+
+          <input type="text" class="task-search-input" id="task-search-input" placeholder="Search tasks, handlers, or workers..." oninput="filterAndRenderTasks()">
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Task ID</th>
+                  <th>Handler</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Worker</th>
+                  <th>Result / Error</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="task-table-body">
+                <!-- Dynamic task rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+
+
+    <!-- =====================================================================
+         VIEW 2: ADVANCED OPS MODE (DEEP TECHNICAL INSTRUMENTATION)
+         ===================================================================== -->
+    <main id="view-advanced">
+      <div class="adv-nav-tabs">
+        <button class="adv-tab-btn active" onclick="switchAdvTab('metrics')" id="adv-tab-btn-metrics">
+          <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Performance & Analytics
+        </button>
+        <button class="adv-tab-btn" onclick="switchAdvTab('ha')" id="adv-tab-btn-ha">
+          <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          High Availability & Consensus
+        </button>
+        <button class="adv-tab-btn" onclick="switchAdvTab('chaos')" id="adv-tab-btn-chaos">
+          <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          Chaos Lab & Dispatcher
+        </button>
+        <button class="adv-tab-btn" onclick="switchAdvTab('logs')" id="adv-tab-btn-logs">
+          <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          Coordinator Audit Stream
+        </button>
+      </div>
+
+      <!-- Advanced Sub-Tab 1: Performance & Charts -->
+      <div class="adv-tab-pane active" id="adv-pane-metrics">
+        <div class="metrics-dashboard-grid">
+          <div class="metric-gauge-card">
+            <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase;">Throughput</div>
+            <div style="font-size: 20px; font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace;">
+              <span id="kpi-tps">0.0</span> <span style="font-size: 11px; color: var(--text-muted);">TPS</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-dim);"><b id="kpi-tpm">0</b> tasks / min</div>
+          </div>
+
+          <div class="metric-gauge-card">
+            <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase;">Average Latency</div>
+            <div style="font-size: 20px; font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace;" id="kpi-latency">0 ms</div>
+            <div style="font-size: 11px; color: var(--text-dim);">P95 response time</div>
+          </div>
+
+          <div class="metric-gauge-card">
+            <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase;">Success Rate</div>
+            <div style="font-size: 20px; font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace;" id="kpi-success">100%</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Fault-tolerant execution</div>
+          </div>
+
+          <div class="metric-gauge-card">
+            <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase;">Fleet Load</div>
+            <div style="font-size: 20px; font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace;" id="kpi-utilization">0%</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Worker node utilization</div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-box">
+            <div class="chart-box-header">
+              <span>Throughput & Queue Backlog (Last 30s)</span>
+              <span style="font-size: 11px; color: var(--cyan);">● TPS ● Queue</span>
+            </div>
+            <div class="chart-canvas-container">
+              <canvas id="throughputCanvas"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-box">
+            <div class="chart-box-header">
+              <span>Worker Utilization & Latency Response</span>
+              <span style="font-size: 11px; color: var(--emerald);">● Busy % ● Latency</span>
+            </div>
+            <div class="chart-canvas-container">
+              <canvas id="utilizationCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Advanced Sub-Tab 2: High Availability -->
+      <div class="adv-tab-pane" id="adv-pane-ha">
+        <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; background: rgba(245, 158, 11, 0.08); padding: 12px 18px; border: 1px solid var(--amber-border); border-radius: var(--radius-sm);">
+          <div>
+            <div style="font-size: 13.5px; font-weight: 700; color: #fbbf24;">🛡️ High Availability & Consensus Plane</div>
+            <div style="font-size: 12px; color: var(--text-muted);">Heartbeat consensus • Automatic failover • Zero task loss</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div class="status-pill" id="ha-term-pill" style="border-color: var(--amber-border); color: #fbbf24;">
+              <span>Term: <b id="ha-term-val">#1</b></span>
+            </div>
+            <div class="status-pill" id="ha-lease-pill" style="border-color: var(--cyan-border); color: #38bdf8;">
+              <span>Lease: <b id="ha-lease-val">3.0s</b></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ha-nodes-grid">
+          <div class="ha-node-card" id="card-coord-primary">
+            <div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <b>coordinator-primary</b>
+                <span class="ha-role-badge" id="badge-coord-primary">LEADER</span>
+              </div>
+              <div style="font-size: 12px; color: var(--text-muted);" id="desc-coord-primary">
+                Active leader driving task dispatching and heartbeat detection.
+              </div>
+            </div>
+          </div>
+
+          <div class="ha-node-card" id="card-coord-standby">
+            <div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <b>coordinator-standby</b>
+                <span class="ha-role-badge" id="badge-coord-standby">STANDBY</span>
+              </div>
+              <div style="font-size: 12px; color: var(--text-muted);" id="desc-coord-standby">
+                Hot standby watchdog. Instantly promoted if leader heartbeat expires.
+              </div>
+            </div>
+          </div>
+
+          <div class="ha-node-card" style="background: rgba(245, 158, 11, 0.04);">
+            <div style="font-size: 12px; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">HA Chaos Triggers</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button class="btn btn-danger btn-sm" onclick="killActiveLeader()">💥 Kill Leader</button>
+              <button class="btn btn-success btn-sm" onclick="recoverCrashedCoordinator()">🔄 Reboot</button>
+              <button class="btn btn-secondary btn-sm" onclick="triggerFailover()">🔀 Failover</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Advanced Sub-Tab 3: Chaos Lab -->
+      <div class="adv-tab-pane" id="adv-pane-chaos">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="panel-box">
+            <div style="font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #fff;">Detailed Task Dispatcher</div>
+            <div style="margin-bottom: 12px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Task Handler</label>
+              <select class="form-select" id="task-select" style="width: 100%;">
+                <option value="resize_image">🖼️ resize_image (Image thumbnailing)</option>
+                <option value="generate_pdf_report">📄 generate_pdf_report (PDF compilation)</option>
+                <option value="flaky_task">🎲 flaky_task (Simulate network timeouts)</option>
+                <option value="poison_pill">☠️ poison_pill (Guaranteed DLQ failure)</option>
+              </select>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Priority</label>
+              <select class="form-select" id="priority-select" style="width: 100%;">
+                <option value="1">🔴 CRITICAL (Queue fast-pass)</option>
+                <option value="2">🟠 HIGH</option>
+                <option value="3" selected>🔵 NORMAL</option>
+                <option value="4">⚪ LOW</option>
+              </select>
+            </div>
+
+            <button class="btn btn-primary" style="width: 100%;" onclick="submitSingleTask()">Submit Task</button>
+          </div>
+
+          <div class="panel-box">
+            <div style="font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #fbbf24;">Resilience Testing Guide</div>
+            <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px;">
+              To test automated recovery: Click <b>Burst</b> below, then switch to Standard View and click <b>Simulate Crash</b> on a worker. The coordinator will immediately detect the missed heartbeats and reschedule tasks.
+            </p>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-secondary btn-sm" onclick="submitBurst()">⚡ Burst (6 Tasks)</button>
+              <button class="btn btn-secondary btn-sm" onclick="submitSurge()">🌊 Surge (10 Tasks)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Advanced Sub-Tab 4: Audit Stream -->
+      <div class="adv-tab-pane" id="adv-pane-logs">
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <div class="panel-box-title">Coordinator Audit Stream</div>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('event-log').innerHTML = ''; showToast('Log cleared');">Clear</button>
+          </div>
+          <div class="log-box" id="event-log">
+            <!-- Event entries inserted here -->
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </div> <!-- /app-container -->
+
+  <!-- Task Submission Modal -->
+  <div class="modal-backdrop" id="task-modal" onclick="if(event.target === this) closeTaskModal()">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title">⚡ Dispatch New Task</div>
+        <button class="close-btn" onclick="closeTaskModal()">
+          <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Task Handler</label>
+        <select class="form-select" id="modal-task-select" style="width: 100%;">
+          <option value="resize_image">🖼️ resize_image (Image Processing)</option>
+          <option value="generate_pdf_report">📄 generate_pdf_report (PDF Generation)</option>
+          <option value="flaky_task">🎲 flaky_task (Network Timeout Simulation)</option>
+          <option value="poison_pill">☠️ poison_pill (Guaranteed DLQ Quarantine)</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Priority</label>
+        <select class="form-select" id="modal-priority-select" style="width: 100%;">
+          <option value="1">🔴 CRITICAL (Queue Preemption)</option>
+          <option value="2">🟠 HIGH</option>
+          <option value="3" selected>🔵 NORMAL</option>
+          <option value="4">⚪ LOW (Batch)</option>
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-secondary" onclick="closeTaskModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitModalTask()">Dispatch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">
+    <svg style="width: 16px; height: 16px; stroke: #34d399;" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+    <span id="toast-text">Task dispatched</span>
+  </div>
+
+  <script>
+    const prioNames = { 1: 'CRITICAL', 2: 'HIGH', 3: 'NORMAL', 4: 'LOW' };
+    let ws = null;
+    let wsReconnectTimer = null;
+    let cachedTasks = [];
+    let cachedMetrics = null;
+    let currentMode = 'simple';
+
+    // HTML Sanitization for XSS Prevention
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Mode Switcher: Simple vs Advanced
+    function setDashboardMode(mode) {
+      currentMode = mode;
+      const simpleView = document.getElementById('view-simple');
+      const advView = document.getElementById('view-advanced');
+      const btnSimple = document.getElementById('btn-mode-simple');
+      const btnAdv = document.getElementById('btn-mode-advanced');
+
+      if (mode === 'simple') {
+        simpleView.style.display = 'block';
+        advView.style.display = 'none';
+        btnSimple.classList.add('active');
+        btnAdv.classList.remove('active');
+      } else {
+        simpleView.style.display = 'none';
+        advView.style.display = 'block';
+        btnSimple.classList.remove('active');
+        btnAdv.classList.add('active');
+
+        // Draw charts if cached metrics exist
+        if (cachedMetrics) {
+          setTimeout(() => renderMetrics(cachedMetrics), 50);
+        }
+      }
+      try { localStorage.setItem('dto_dashboard_mode', mode); } catch(e){}
+    }
+
+    // Advanced Sub-tabs
+    function switchAdvTab(tabId) {
+      document.querySelectorAll('.adv-tab-pane').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.adv-tab-btn').forEach(b => b.classList.remove('active'));
+
+      const pane = document.getElementById(`adv-pane-${tabId}`);
+      const btn = document.getElementById(`adv-tab-btn-${tabId}`);
+      if (pane) pane.classList.add('active');
+      if (btn) btn.classList.add('active');
+
+      if (tabId === 'metrics' && cachedMetrics) {
+        setTimeout(() => renderMetrics(cachedMetrics), 50);
+      }
+    }
+
+    // Modal Control
+    function openTaskModal() {
+      const modal = document.getElementById('task-modal');
+      document.getElementById('modal-task-select').value = document.getElementById('task-select').value;
+      document.getElementById('modal-priority-select').value = document.getElementById('priority-select').value;
+      modal.classList.add('active');
+    }
+
+    function closeTaskModal() {
+      document.getElementById('task-modal').classList.remove('active');
+    }
+
+    async function submitModalTask() {
+      document.getElementById('task-select').value = document.getElementById('modal-task-select').value;
+      document.getElementById('priority-select').value = document.getElementById('modal-priority-select').value;
+      closeTaskModal();
+      await submitSingleTask();
+    }
+
+    async function submitQuickTask() {
+      const name = document.getElementById('quick-task-select').value;
+      document.getElementById('task-select').value = name;
+      await submitSingleTask();
+    }
+
+    // Toast Notification
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      if (toastText) toastText.innerText = msg;
+      else toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2600);
+    }
+
+    // Task Filter Handling
+    function filterAndRenderTasks() {
+      const query = (document.getElementById('task-search-input')?.value || '').toLowerCase().trim();
+      let filtered = cachedTasks;
+
+      if (query) {
+        filtered = filtered.filter(t => 
+          t.id.toLowerCase().includes(query) ||
+          t.name.toLowerCase().includes(query) ||
+          (t.assigned_worker && t.assigned_worker.toLowerCase().includes(query))
+        );
+      }
+      renderFilteredTaskRows(filtered);
+    }
+
+    // Main Telemetry Renderer
+    function renderStats(data) {
+      if (!data) return;
+
+      // Update Top KPIs
+      document.getElementById('val-active-workers').innerText = data.workers.active;
+      document.getElementById('val-total-workers').innerText = `of ${data.workers.total} total nodes`;
+      document.getElementById('val-pending-tasks').innerText = data.tasks.pending;
+      document.getElementById('val-in-progress-tasks').innerText = `${data.tasks.in_progress} in-flight`;
+      document.getElementById('val-completed-tasks').innerText = data.tasks.completed;
+      document.getElementById('val-total-tasks').innerText = `of ${data.tasks.total} submitted`;
+      document.getElementById('val-dlq-tasks').innerText = `${data.tasks.dlq} DLQ`;
+      document.getElementById('cluster-name').innerText = data.cluster_id;
+
+      // Update headline status
+      const headline = document.getElementById('simple-health-headline');
+      if (headline) {
+        if (data.workers.active === 0) {
+          headline.innerText = 'Cluster Degraded: No active workers';
+          headline.style.color = '#f87171';
+        } else if (data.tasks.dlq > 0) {
+          headline.innerText = `Cluster Active (${data.tasks.dlq} in DLQ)`;
+          headline.style.color = '#fbbf24';
+        } else {
+          headline.innerText = 'Cluster Healthy & Operational';
+          headline.style.color = '#fff';
+        }
+      }
+      }
+
+      // Render Workers Fleet
+      renderWorkers(data.workers.list);
+
+      // Render Coordinator Audit Logs
+      if (data.recent_events) {
+        renderLogs(data.recent_events);
+      }
+
+      // Render High Availability consensus
+      if (data.ha) {
+        renderHA(data.ha);
+      }
+
+      // Render Performance & Charts
+      if (data.metrics) {
+        cachedMetrics = data.metrics;
+        renderMetrics(data.metrics);
+      }
+    }
+
+    function renderWorkers(workers) {
+      const container = document.getElementById('workers-container');
+      if (!container || !workers) return;
+
+      container.innerHTML = workers.map(w => {
+        const isDead = w.status === 'DEAD' || w.is_simulated_killed;
+        const statusClass = w.status === 'ACTIVE' ? 'status-active' : (w.status === 'SUSPECTED_DEAD' ? 'status-suspected' : 'status-dead');
+        const badgeClass = w.status === 'ACTIVE' ? 'badge-active' : (w.status === 'SUSPECTED_DEAD' ? 'badge-suspected' : 'badge-dead');
+        const safeTaskId = w.current_task_id ? escapeHtml(w.current_task_id.substring(0, 8)) : '';
+        const currentTask = w.current_task_id ? `⚙️ Task: <b>${safeTaskId}...</b>` : '💤 Idle (Ready)';
+        const dynamicBadge = w.is_dynamic ? `<span class="badge badge-elastic">ELASTIC</span>` : '';
+        const safeId = escapeHtml(w.id);
+        const encodedId = encodeURIComponent(w.id);
+        const safeStatus = escapeHtml(w.status);
+        const safeSecs = escapeHtml(w.seconds_since_heartbeat);
+        const safeDone = escapeHtml(w.completed_tasks);
+
+        return `
+          <div class="worker-card ${statusClass}">
+            <div class="worker-info-group">
+              <div class="worker-name-row">
+                <span class="worker-id">${safeId}</span>
+                ${dynamicBadge}
+                <span class="badge ${badgeClass}">${safeStatus}</span>
+              </div>
+              <div class="worker-activity">
+                ${currentTask} • Ping: ${safeSecs}s ago • ${safeDone} done
+              </div>
+            </div>
+
+            <div>
+              ${w.is_simulated_killed ? `
+                <button class="btn btn-success btn-sm" onclick="recoverWorker('${encodedId}')">
+                  🔄 Reboot
+                </button>
+              ` : `
+                <button class="btn btn-danger btn-sm" onclick="killWorker('${encodedId}')">
+                  💥 Crash
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderLogs(logs) {
+      const logBox = document.getElementById('event-log');
+      if (!logBox || !logs) return;
+
+      logBox.innerHTML = logs.map(entry => `
+        <div class="log-entry level-${escapeHtml(entry.level)}">
+          <span class="log-time">[${escapeHtml(entry.time_str)}]</span>
+          <span class="log-source">${escapeHtml(entry.source)}:</span>
+          <span class="log-msg">${escapeHtml(entry.message)}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderHA(ha) {
+      if (!ha) return;
+      const termEl = document.getElementById('ha-term-val');
+      const leaseEl = document.getElementById('ha-lease-val');
+      if (termEl) termEl.innerText = `#${ha.term}`;
+      if (leaseEl) leaseEl.innerText = `${ha.lease_remaining.toFixed(1)}s`;
+
+      function updateNodeCard(prefix, node) {
+        const card = document.getElementById(`card-coord-${prefix}`);
+        const badge = document.getElementById(`badge-coord-${prefix}`);
+        const desc = document.getElementById(`desc-coord-${prefix}`);
+        if (!card || !badge || !desc) return;
+
+        if (node.role === 'LEADER') {
+          card.style.borderColor = 'rgba(245, 158, 11, 0.7)';
+          badge.style.background = 'rgba(245, 158, 11, 0.2)';
+          badge.style.color = '#fbbf24';
+          badge.innerText = '👑 ACTIVE LEADER';
+          desc.innerText = 'Active coordinator driving heartbeat detection & dispatching.';
+        } else if (node.role === 'STANDBY') {
+          card.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+          badge.style.background = 'rgba(99, 102, 241, 0.15)';
+          badge.style.color = '#a5b4fc';
+          badge.innerText = '💤 HOT STANDBY';
+          desc.innerText = 'Watchdog observing leader lease. Instant promotion on timeout.';
+        } else {
+          card.style.borderColor = 'rgba(239, 68, 68, 0.6)';
+          badge.style.background = 'rgba(239, 68, 68, 0.25)';
+          badge.style.color = '#f87171';
+          badge.innerText = '💀 DEAD';
+          desc.innerText = 'Node is offline. Heartbeat lease expired.';
+        }
+      }
+
+      updateNodeCard('primary', ha.primary);
+      updateNodeCard('standby', ha.standby);
+    }
+
+    function renderMetrics(metrics) {
+      if (!metrics) return;
+
+      if (metrics.summary) {
+        const s = metrics.summary;
+        const tpsEl = document.getElementById('kpi-tps');
+        const tpmEl = document.getElementById('kpi-tpm');
+        const latEl = document.getElementById('kpi-latency');
+        const succEl = document.getElementById('kpi-success');
+        const utilEl = document.getElementById('kpi-utilization');
+
+        if (tpsEl) tpsEl.innerText = s.throughput_tps.toFixed(1);
+        if (tpmEl) tpmEl.innerText = s.throughput_tpm;
+        if (latEl) latEl.innerText = `${s.avg_latency_ms.toFixed(0)} ms`;
+        if (succEl) succEl.innerText = `${s.success_rate_pct.toFixed(0)}%`;
+        if (utilEl) utilEl.innerText = `${s.utilization_pct.toFixed(0)}%`;
+      }
+
+      if (metrics.history && metrics.history.length > 0) {
+        let hist = metrics.history;
+        if (hist.length < 15) {
+          const padCount = 15 - hist.length;
+          const dummy = [];
+          for (let i = 0; i < padCount; i++) {
+            dummy.push({ throughput_tps: 0, queue_depth: 0, in_progress: 0, utilization_pct: 0, avg_latency_ms: 0 });
+          }
+          hist = dummy.concat(hist);
+        }
+
+        const tpsData = hist.map(p => p.throughput_tps);
+        const queueData = hist.map(p => p.queue_depth);
+        const inFlightData = hist.map(p => p.in_progress);
+
+        drawChart('throughputCanvas', [
+          { name: 'Throughput', data: tpsData, color: '#06b6d4', fillColor: 'rgba(6, 182, 212, 0.2)' },
+          { name: 'Queue Depth', data: queueData, color: '#a78bfa' },
+          { name: 'In-Flight', data: inFlightData, color: '#60a5fa' }
+        ]);
+
+        const utilData = hist.map(p => p.utilization_pct);
+        const latData = hist.map(p => p.avg_latency_ms);
+
+        drawChart('utilizationCanvas', [
+          { name: 'Utilization', data: utilData, color: '#10b981', fillColor: 'rgba(16, 185, 129, 0.18)' },
+          { name: 'Latency', data: latData, color: '#fbbf24' }
+        ], 100);
+      }
+    }
+
+    function drawChart(canvasId, seriesList, maxValOverride = null) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+
+      if (rect.width === 0 || rect.height === 0) return;
+
+      if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
+        canvas.width = Math.floor(rect.width * dpr);
+        canvas.height = Math.floor(rect.height * dpr);
+      }
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Subtle Grid Lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= 3; i++) {
+        const y = (h / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(32, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      let maxVal = maxValOverride || 1;
+      seriesList.forEach(s => {
+        s.data.forEach(v => { if (v > maxVal) maxVal = v; });
+      });
+      maxVal = Math.ceil(maxVal * 1.15) || 1;
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(maxVal >= 1000 ? (maxVal/1000).toFixed(1) + 'k' : maxVal, 28, 12);
+      ctx.fillText('0', 28, h - 4);
+
+      const leftPad = 34;
+      const chartW = w - leftPad - 8;
+      const chartH = h - 18;
+
+      seriesList.forEach(series => {
+        const pts = series.data;
+        if (!pts || pts.length < 2) return;
+        const stepX = chartW / (pts.length - 1);
+
+        if (series.fillColor) {
+          ctx.beginPath();
+          ctx.moveTo(leftPad, h - 4);
+          pts.forEach((v, i) => {
+            const x = leftPad + i * stepX;
+            const y = (h - 4) - (Math.min(v, maxVal) / maxVal) * chartH;
+            ctx.lineTo(x, y);
+          });
+          ctx.lineTo(leftPad + (pts.length - 1) * stepX, h - 4);
+          ctx.closePath();
+          const grad = ctx.createLinearGradient(0, 0, 0, h);
+          grad.addColorStop(0, series.fillColor);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.strokeStyle = series.color;
+        ctx.lineWidth = 2.2;
+        pts.forEach((v, i) => {
+          const x = leftPad + i * stepX;
+          const y = (h - 4) - (Math.min(v, maxVal) / maxVal) * chartH;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+    }
+
+    function renderTasks(tasks) {
+      cachedTasks = tasks || [];
+      filterAndRenderTasks();
+    }
+
+    function renderFilteredTaskRows(tasks) {
+      const tbody = document.getElementById('task-table-body');
+      if (!tbody) return;
+
+      if (!tasks || tasks.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 24px;">No tasks queued. Dispatch one above!</td></tr>`;
+        return;
+      }
+
+      const nowSec = Date.now() / 1000;
+      tbody.innerHTML = tasks.slice(0, 25).map(t => {
+        let diagnostic = `<span style="color: var(--text-dim);">-</span>`;
+        if (t.error) {
+          diagnostic = `<span style="color: #f87171; font-family: monospace;">${escapeHtml(t.error.substring(0, 45))}...</span>`;
+        } else if (t.result) {
+          const resStr = typeof t.result === 'object' ? JSON.stringify(t.result) : String(t.result);
+          diagnostic = `<span style="color: #34d399; font-family: monospace;">${escapeHtml(resStr.substring(0, 40))}</span>`;
+        }
+
+        const prioName = prioNames[t.priority] || 'NORMAL';
+        const prioBadge = `<span class="priority-pill priority-${escapeHtml(t.priority)}">${escapeHtml(prioName)}</span>`;
+        const worker = t.assigned_worker ? `<code style="color: #a5b4fc; font-family: 'JetBrains Mono', monospace;">${escapeHtml(t.assigned_worker)}</code>` : `<span style="color: var(--text-dim);">Queue</span>`;
+
+        let statusBadge = `<span class="task-status-pill status-${escapeHtml(t.status)}">${escapeHtml(t.status)}</span>`;
+        if (t.status === 'PENDING' && t.next_retry_at && t.next_retry_at > nowSec) {
+          const remaining = (t.next_retry_at - nowSec).toFixed(1);
+          statusBadge = `<span class="task-status-pill" style="background: var(--amber-bg); color: #fbbf24; display: inline-flex; align-items: center; gap: 4px;"><svg style="width: 10px; height: 10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Backoff: ${escapeHtml(remaining)}s</span>`;
+        }
+
+        let actionBtn = `<span style="color: var(--text-dim); font-size: 11px;">-</span>`;
+        if (t.status === 'DEAD_LETTER' || t.status === 'FAILED') {
+          actionBtn = `<button class="btn btn-sm" onclick="retryTask('${escapeHtml(t.id)}')" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); padding: 3px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg style="width: 10px; height: 10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Re-drive
+          </button>`;
+        } else if (t.status === 'PENDING') {
+          actionBtn = `<button class="btn btn-sm" onclick="cancelTask('${escapeHtml(t.id)}')" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); padding: 3px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg style="width: 10px; height: 10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            Cancel
+          </button>`;
+        }
+
+        const safeId = escapeHtml(t.id ? t.id.substring(0, 8) : '');
+        const safeName = escapeHtml(t.name);
+
+        return `
+          <tr>
+            <td><code style="font-size: 11px; color: var(--cyan);">${safeId}</code></td>
+            <td><b>${safeName}</b></td>
+            <td>${prioBadge}</td>
+            <td>${statusBadge}</td>
+            <td>${worker}</td>
+            <td>${diagnostic}</td>
+            <td style="text-align: right;">${actionBtn}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // WebSocket Stream Connection
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const wsPill = document.getElementById('ws-status-pill');
+      const wsDot = document.getElementById('ws-pulse-dot');
+      const wsText = document.getElementById('ws-status-text');
+
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          if (wsPill) {
+            wsPill.style.borderColor = 'var(--emerald-border)';
+            wsPill.style.background = 'var(--emerald-bg)';
+            wsPill.style.color = '#34d399';
+          }
+          if (wsDot) wsDot.style.backgroundColor = '#10b981';
+          if (wsText) wsText.innerHTML = 'Live Connected';
+          if (wsReconnectTimer) {
+            clearTimeout(wsReconnectTimer);
+            wsReconnectTimer = null;
+          }
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload.stats) renderStats(payload.stats);
+            if (payload.tasks) renderTasks(payload.tasks);
+          } catch (err) {
+            console.error("WS message parse error:", err);
+          }
+        };
+
+        ws.onclose = () => {
+          if (wsPill) {
+            wsPill.style.borderColor = 'var(--amber-border)';
+            wsPill.style.background = 'var(--amber-bg)';
+            wsPill.style.color = '#fbbf24';
+          }
+          if (wsDot) wsDot.style.backgroundColor = '#f59e0b';
+          if (wsText) wsText.innerHTML = 'Reconnecting...';
+
+          if (!wsReconnectTimer) {
+            wsReconnectTimer = setTimeout(connectWebSocket, 2000);
+          }
+        };
+
+        ws.onerror = () => {
+          if (ws) ws.close();
+        };
+      } catch (err) {
+        if (!wsReconnectTimer) {
+          wsReconnectTimer = setTimeout(connectWebSocket, 2000);
+        }
+      }
+    }
+
+    // REST API Actions
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        renderStats(data);
+      } catch (e) {
+        console.error("Telemetry error:", e);
+      }
+    }
+
+    async function fetchTasks() {
+      try {
+        const res = await fetch('/api/tasks');
+        const tasks = await res.json();
+        renderTasks(tasks);
+      } catch (e) {
+        console.error("Task fetch error:", e);
+      }
+    }
+
+    async function submitSingleTask() {
+      const name = document.getElementById('task-select').value;
+      const priority = parseInt(document.getElementById('priority-select').value) || 3;
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, priority: priority, payload: {} })
+      });
+      const data = await res.json();
+      showToast(`Task '${name}' [${prioNames[priority] || 'NORMAL'}] dispatched`);
+      fetchStats();
+      fetchTasks();
+    }
+
+    async function cancelTask(taskId) {
+      try {
+        const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/cancel`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`Task ${taskId.substring(0, 8)} cancelled`);
+        } else {
+          showToast(data.detail || 'Could not cancel task');
+        }
+        fetchStats();
+        fetchTasks();
+      } catch (e) {
+        showToast('Error cancelling task: ' + e);
+      }
+    }
+
+    async function retryTask(taskId) {
+      try {
+        const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/retry`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`Task ${taskId.substring(0, 8)} re-driven to queue`);
+        } else {
+          showToast(data.detail || 'Could not retry task');
+        }
+        fetchStats();
+        fetchTasks();
+      } catch (e) {
+        showToast('Error retrying task: ' + e);
+      }
+    }
+
+    async function replayAllDLQ() {
+      try {
+        const res = await fetch('/api/dlq/retry-all', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message || 'DLQ tasks re-driven');
+        fetchStats();
+        fetchTasks();
+      } catch (e) {
+        showToast('Error re-driving DLQ: ' + e);
+      }
+    }
+
+    async function submitBurst() {
+      const res = await fetch('/api/chaos/burst', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message || 'Queued 6 burst tasks');
+      fetchStats();
+      fetchTasks();
+    }
+
+    async function submitSurge() {
+      const res = await fetch('/api/chaos/surge', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message || 'Surge triggered! Auto-scaler active');
+      fetchStats();
+      fetchTasks();
+    }
+
+    async function killWorker(workerId) {
+      await fetch(`/api/workers/${encodeURIComponent(workerId)}/kill`, { method: 'POST' });
+      showToast(`Simulated crash for ${workerId}`);
+      fetchStats();
+    }
+
+    async function recoverWorker(workerId) {
+      await fetch(`/api/workers/${encodeURIComponent(workerId)}/recover`, { method: 'POST' });
+      showToast(`Worker ${workerId} rebooted`);
+      fetchStats();
+    }
+
+    async function spawnNewWorker() {
+      const res = await fetch('/api/workers/spawn', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message || 'Spawned worker');
+      fetchStats();
+    }
+
+    async function killActiveLeader() {
+      try {
+        const res = await fetch('/api/ha/kill_leader', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message || 'Leader killed');
+        fetchStats();
+      } catch (e) {
+        showToast('Error killing leader: ' + e);
+      }
+    }
+
+    async function recoverCrashedCoordinator() {
+      try {
+        const res = await fetch('/api/ha/recover', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message || 'Coordinator rebooted');
+        fetchStats();
+      } catch (e) {
+        showToast('Error recovering coordinator: ' + e);
+      }
+    }
+
+    async function triggerFailover() {
+      try {
+        const res = await fetch('/api/ha/failover', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message || 'Failover initiated');
+        fetchStats();
+      } catch (e) {
+        showToast('Failover error: ' + e);
+      }
+    }
+
+    // Initialize on Page Load
+    window.addEventListener('DOMContentLoaded', () => {
+      // Restore mode if saved
+      try {
+        const saved = localStorage.getItem('dto_dashboard_mode');
+        if (saved) setDashboardMode(saved);
+      } catch(e){}
+
+      connectWebSocket();
+      fetchStats();
+      fetchTasks();
+
+      setInterval(() => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          fetchStats();
+          fetchTasks();
+        }
+      }, 3000);
+    });
+
+    // Handle Window Resize for Charts
+    window.addEventListener('resize', () => {
+      if (currentMode === 'advanced' && cachedMetrics) {
+        renderMetrics(cachedMetrics);
+      }
+    });
+
+    // Immediate initial call
+    connectWebSocket();
+    fetchStats();
+    fetchTasks();
+  </script>
+</body>
+</html>

@@ -41,6 +41,10 @@ class AutoScaler:
         if now - self.last_scale_action < self.scale_cooldown:
             return None
 
+        should_scale_up = False
+        retire_id: Optional[str] = None
+        retire_idle_time = 0.0
+
         with coordinator._lock:
             # Active and healthy workers
             active_workers = [
@@ -50,35 +54,35 @@ class AutoScaler:
             current_worker_count = len(active_workers)
             pending_count = len(coordinator.task_queue)
 
-            # -------------------------------------------------------------
-            # SCALE UP LOGIC: Queue pressure is high
-            # -------------------------------------------------------------
             if pending_count >= self.scale_up_threshold and current_worker_count < self.max_workers:
-                new_worker_id = spawn_worker_fn(True)  # True = is_dynamic
-                self.last_scale_action = now
-                msg = (
-                    f"High queue pressure ({pending_count} pending). "
-                    f"Scaled UP: spawned '{new_worker_id}' (Fleet: {current_worker_count + 1}/{self.max_workers})"
-                )
-                coordinator._log_event("AUTOSCALER", msg, level="WARNING")
-                return msg
-
-            # -------------------------------------------------------------
-            # SCALE DOWN LOGIC: Queue empty & dynamic workers idle
-            # -------------------------------------------------------------
-            if pending_count == 0 and current_worker_count > self.min_workers:
-                # Find an idle dynamic worker that has been idle for >= scale_down_idle_seconds
+                should_scale_up = True
+            elif pending_count == 0 and current_worker_count > self.min_workers:
                 for w in active_workers:
                     if w.is_dynamic and w.current_task_id is None:
-                        idle_time = (now - w.idle_since) if w.idle_since else 0
+                        idle_time = (now - w.idle_since) if w.idle_since else 0.0
                         if idle_time >= self.scale_down_idle_seconds:
-                            retire_worker_fn(w.id)
-                            self.last_scale_action = now
-                            msg = (
-                                f"Zero queue pressure & idle for {idle_time:.1f}s. "
-                                f"Scaled DOWN: retired '{w.id}' (Fleet: {current_worker_count - 1}/{self.max_workers})"
-                            )
-                            coordinator._log_event("AUTOSCALER", msg, level="INFO")
-                            return msg
+                            retire_id = w.id
+                            retire_idle_time = idle_time
+                            break
+
+        if should_scale_up:
+            new_worker_id = spawn_worker_fn(True)  # True = is_dynamic
+            self.last_scale_action = now
+            msg = (
+                f"High queue pressure ({pending_count} pending). "
+                f"Scaled UP: spawned '{new_worker_id}' (Fleet: {current_worker_count + 1}/{self.max_workers})"
+            )
+            coordinator._log_event("AUTOSCALER", msg, level="WARNING")
+            return msg
+
+        if retire_id:
+            retire_worker_fn(retire_id)
+            self.last_scale_action = now
+            msg = (
+                f"Zero queue pressure & idle for {retire_idle_time:.1f}s. "
+                f"Scaled DOWN: retired '{retire_id}' (Fleet: {current_worker_count - 1}/{self.max_workers})"
+            )
+            coordinator._log_event("AUTOSCALER", msg, level="INFO")
+            return msg
 
         return None

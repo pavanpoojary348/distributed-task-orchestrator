@@ -15,6 +15,19 @@ from typing import Dict, List, Optional, Any
 from core.models import Task, TaskPriority, TaskStatus, Worker, WorkerStatus, CoordinatorRole
 
 
+def sanitize_error_message(text: str) -> str:
+    """Sanitize error messages and logs to prevent leaking filesystem paths or PII."""
+    if not text:
+        return text
+    import re
+    # Mask Windows C:\Users\xxx and Linux /home/xxx paths
+    text = re.sub(r'[A-Za-z]:\\[Uu]sers\\[^\\]+', r'[REDACTED_PATH]', text)
+    text = re.sub(r'/home/[^/]+', r'[REDACTED_PATH]', text)
+    # Mask authorization token patterns if present
+    text = re.sub(r'(bearer\s+)[A-Za-z0-9\-_\.]+', r'\1[REDACTED]', text, flags=re.IGNORECASE)
+    return text
+
+
 class ClusterState:
     """Thread-safe centralized state store shared across HA coordinator nodes."""
     def __init__(self):
@@ -40,6 +53,7 @@ class Coordinator:
         retry_jitter: float = 0.5,
         shared_state: Optional[ClusterState] = None,
         metrics_collector: Optional[Any] = None,
+        max_task_history: int = 1000,
     ):
         self.cluster_id = cluster_id
         self.node_id = node_id
@@ -50,7 +64,7 @@ class Coordinator:
         self.base_retry_delay = base_retry_delay
         self.retry_jitter = retry_jitter
         self.metrics_collector = metrics_collector
-
+        self.max_task_history = max_task_history
 
         # Thread-safe storage (either shared with HA standby or locally initialized)
         if shared_state is not None:
@@ -77,20 +91,39 @@ class Coordinator:
         """Self-resolving property for unified interface compatibility."""
         return self
 
+    def _prune_task_history(self):
+        """Prune old terminal tasks (COMPLETED or DEAD_LETTER) to prevent memory leaks."""
+        if len(self.tasks) <= self.max_task_history:
+            return
+        # Find terminal tasks sorted by created_at ascending
+        terminal_tasks = [
+            t for t in self.tasks.values()
+            if t.status in (TaskStatus.COMPLETED, TaskStatus.DEAD_LETTER, TaskStatus.CANCELLED)
+        ]
+        terminal_tasks.sort(key=lambda x: x.created_at)
+        excess = len(self.tasks) - self.max_task_history
+        for t in terminal_tasks[:excess]:
+            self.tasks.pop(t.id, None)
+            if t.id in self.dead_letter_queue:
+                try:
+                    self.dead_letter_queue.remove(t.id)
+                except ValueError:
+                    pass
 
     def _log_event(self, source: str, message: str, level: str = "INFO"):
-        """Append an event to the internal audit log."""
+        """Append an event to the internal audit log with sanitized contents."""
+        clean_msg = sanitize_error_message(message)
         event = {
             "timestamp": time.time(),
             "time_str": time.strftime("%H:%M:%S"),
             "source": source,
-            "message": message,
+            "message": clean_msg,
             "level": level,
         }
         self.event_log.append(event)
         # Keep log trimmed to last 200 events
         if len(self.event_log) > 200:
-            self.event_log.pop(0)
+            del self.event_log[:-200]
 
     # -------------------------------------------------------------------------
     # Worker Management & Heartbeats
@@ -231,6 +264,77 @@ class Coordinator:
         with self._lock:
             return self.tasks.get(task_id)
 
+    def cancel_task(self, task_id: str) -> bool:
+        """Cancel a pending task before it is dispatched to a worker."""
+        with self._lock:
+            task = self.tasks.get(task_id)
+            if not task:
+                return False
+            if task.status != TaskStatus.PENDING:
+                # Cannot cancel tasks that are already executing, completed, or dead
+                return False
+
+            if task_id in self.task_queue:
+                self.task_queue.remove(task_id)
+
+            task.status = TaskStatus.CANCELLED
+            task.next_retry_at = None
+            task.updated_at = time.time()
+            self._log_event(
+                "OPERATOR",
+                f"Task '{task.name}' ({task.id[:8]}) CANCELLED by operator",
+                level="WARNING"
+            )
+            self._prune_task_history()
+            return True
+
+    def retry_task(self, task_id: str) -> bool:
+        """Re-drive a dead-letter or failed/cancelled task back to the pending queue."""
+        with self._lock:
+            task = self.tasks.get(task_id)
+            if not task:
+                return False
+            if task.status not in (TaskStatus.DEAD_LETTER, TaskStatus.FAILED, TaskStatus.CANCELLED):
+                return False
+
+            # Remove from DLQ list if present
+            if task_id in self.dead_letter_queue:
+                self.dead_letter_queue.remove(task_id)
+
+            # Reset task state for re-execution
+            task.status = TaskStatus.PENDING
+            task.retry_count = 0
+            task.assigned_worker = None
+            task.next_retry_at = None
+            task.error = None
+            task.result = None
+            task.execution_time = None
+            task.updated_at = time.time()
+
+            self._enqueue_task(task.id)
+            self._log_event(
+                "OPERATOR",
+                f"Task '{task.name}' ({task.id[:8]}) re-driven to queue [PENDING]",
+                level="INFO"
+            )
+            return True
+
+    def retry_all_dlq(self) -> int:
+        """Re-drive all tasks currently parked in the Dead Letter Queue."""
+        with self._lock:
+            dlq_ids = list(self.dead_letter_queue)
+            count = 0
+            for task_id in dlq_ids:
+                if self.retry_task(task_id):
+                    count += 1
+            if count > 0:
+                self._log_event(
+                    "OPERATOR",
+                    f"Re-driven {count} tasks from DLQ to queue",
+                    level="INFO"
+                )
+            return count
+
     def dispatch_tasks(self) -> List[Dict[str, str]]:
         """Dispatch pending tasks to available idle workers, respecting backoff timers."""
         assignments: List[Dict[str, str]] = []
@@ -308,6 +412,7 @@ class Coordinator:
             )
             if self.metrics_collector:
                 self.metrics_collector.record_completion(execution_time=execution_time)
+            self._prune_task_history()
             return True
 
     def fail_task(self, task_id: str, error_message: str) -> bool:
@@ -321,7 +426,8 @@ class Coordinator:
             if self.metrics_collector:
                 self.metrics_collector.record_failure()
 
-            task.error = error_message
+            clean_error = sanitize_error_message(error_message)
+            task.error = clean_error
 
             task.updated_at = now
             worker_id = task.assigned_worker
@@ -348,7 +454,7 @@ class Coordinator:
                 self._enqueue_task(task.id)
                 self._log_event(
                     worker_id or "COORDINATOR",
-                    f"Task '{task.name}' ({task.id[:8]}) FAILED. Backing off for {backoff:.1f}s before retry ({task.retry_count}/{task.max_retries}): {error_message}",
+                    f"Task '{task.name}' ({task.id[:8]}) FAILED. Backing off for {backoff:.1f}s before retry ({task.retry_count}/{task.max_retries}): {clean_error}",
                     level="WARNING"
                 )
             else:
@@ -363,6 +469,7 @@ class Coordinator:
                     level="ERROR"
                 )
 
+            self._prune_task_history()
             return True
 
     def _reclaim_orphaned_task(self, task_id: str, reason: str):
@@ -376,6 +483,7 @@ class Coordinator:
                 task.retry_count += 1
                 task.status = TaskStatus.PENDING
                 task.assigned_worker = None
+                task.next_retry_at = None  # Reset backoff so reclaimed tasks are dispatched immediately
                 task.updated_at = time.time()
                 # Prioritize reassignment in priority queue
                 self._enqueue_task(task.id)
@@ -386,6 +494,7 @@ class Coordinator:
                 )
             else:
                 task.status = TaskStatus.DEAD_LETTER
+                task.next_retry_at = None
                 if task.id not in self.dead_letter_queue:
                     self.dead_letter_queue.append(task.id)
                 self._log_event(
