@@ -6,3 +6,4 @@ venv/
 *.log
 .DS_Store
 Thumbs.db
+.pytest_cache/
